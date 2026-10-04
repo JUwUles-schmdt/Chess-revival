@@ -1,13 +1,12 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Fusion; 
 
-public class BoardView : MonoBehaviour
+public class BoardView : NetworkBehaviour
 {
     public PieceTheme theme; 
     public Vector2 boardOffset = new Vector2(-3.5f, -1.5f);
     public Vector2 tileSize = new Vector2(1f, 0.75f);
-    
-    // Nouveau : Ajustement pour compenser la hauteur des pièces lors du clic
     public Vector2 clickOffset = new Vector2(0f, 0.4f); 
 
     private Board logicBoard;
@@ -24,6 +23,13 @@ public class BoardView : MonoBehaviour
     {
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
         {
+            // La sécurité réseau est testée uniquement lors du clic
+            if (!Object || !Object.IsValid)
+            {
+                Debug.LogWarning("Clic ignoré : En attente de connexion Photon ou composant 'Network Object' manquant sur l'objet.");
+                return;
+            }
+
             Vector2Int clickedSquare = GetGridPositionFromMouse();
 
             if (clickedSquare.x == -1)
@@ -49,15 +55,22 @@ public class BoardView : MonoBehaviour
                     return;
                 }
 
-                Piece pieceToMove = logicBoard.Grid[selectedSquare.x, selectedSquare.y];
-                Piece pieceCaptured = logicBoard.Grid[clickedSquare.x, clickedSquare.y];
-                
-                Move move = new Move(selectedSquare.x, selectedSquare.y, clickedSquare.x, clickedSquare.y, pieceToMove, pieceCaptured);
-                logicBoard.ExecuteMove(move);
-                RefreshVisuals();
+                RPC_SendMove(selectedSquare.x, selectedSquare.y, clickedSquare.x, clickedSquare.y);
                 selectedSquare = new Vector2Int(-1, -1);
             }
         }
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.All)]
+    public void RPC_SendMove(int startX, int startY, int targetX, int targetY)
+    {
+        Piece pieceToMove = logicBoard.Grid[startX, startY];
+        Piece pieceCaptured = logicBoard.Grid[targetX, targetY];
+        
+        Move move = new Move(startX, startY, targetX, targetY, pieceToMove, pieceCaptured);
+        
+        logicBoard.ExecuteMove(move);
+        RefreshVisuals();
     }
 
     public Vector2Int GetGridPositionFromMouse()
@@ -65,12 +78,11 @@ public class BoardView : MonoBehaviour
         Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
         Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
         
-        // On triche en ajoutant le clickOffset à la position de la souris
         float adjustedY = mouseWorldPos.y + clickOffset.y;
         float adjustedX = mouseWorldPos.x + clickOffset.x;
 
-        int x = Mathf.FloorToInt((adjustedX - boardOffset.x) / tileSize.x +0.5f);
-        int y = Mathf.FloorToInt((adjustedY - boardOffset.y) / tileSize.y +1);
+        int x = Mathf.FloorToInt((adjustedX - boardOffset.x) / tileSize.x + 0.5f);
+        int y = Mathf.FloorToInt((adjustedY - boardOffset.y) / tileSize.y + 1);
 
         if (x >= 0 && x < 8 && y >= 0 && y < 8)
             return new Vector2Int(x, y);
