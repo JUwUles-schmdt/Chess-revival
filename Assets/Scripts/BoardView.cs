@@ -70,7 +70,7 @@ public class BoardView : MonoBehaviour
         float adjustedX = mouseWorldPos.x + clickOffset.x;
 
         int x = Mathf.FloorToInt((adjustedX - boardOffset.x) / tileSize.x +0.5f);
-        int y = Mathf.FloorToInt((adjustedY - boardOffset.y) / tileSize.y);
+        int y = Mathf.FloorToInt((adjustedY - boardOffset.y) / tileSize.y +1);
 
         if (x >= 0 && x < 8 && y >= 0 && y < 8)
             return new Vector2Int(x, y);
